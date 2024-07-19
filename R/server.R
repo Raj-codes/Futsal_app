@@ -19,10 +19,15 @@ server <- function(input, output, session) {
       }
       do.call(tagList, poolInputs)
     })
+    
+    output$generateButton <- renderUI({
+      actionButton("generate", "Generate")
+    })
   })
   
   poolData <- reactive({
     input$generate
+    input$regenerate
     isolate({
       numPools <- input$numPools
       poolNames <- LETTERS[1:numPools]
@@ -55,9 +60,9 @@ server <- function(input, output, session) {
   output$poolTable <- renderTable({
     req(poolData())
     poolData()$combinedData
-  })
+  }, bordered = TRUE, spacing = "s", align = "c", rownames = FALSE)
   
-  observeEvent(input$generate, {
+  generateGroupsAndDiagram <- function() {
     req(poolData())
     numGroups <- input$numGroups
     poolNames <- LETTERS[1:input$numPools]
@@ -68,7 +73,7 @@ server <- function(input, output, session) {
     }
     
     pools <- poolData()$data
-    set.seed(123) # For reproducibility
+    set.seed(sample(1:10000, 1)) # For reproducibility with variation
     
     currentGroupIndex <- 1
     
@@ -91,7 +96,7 @@ server <- function(input, output, session) {
       for (i in 1:numGroups) {
         groupTables[[i]] <- column(
           3,
-          h4(paste("Group", LETTERS[i])),
+          div(style = "font-weight: bold; font-size: 1.5em; border-bottom: 2px solid #333; margin-bottom: 10px;", paste("Group", LETTERS[i])),
           tableOutput(paste0("groupTable", i))
         )
         
@@ -99,44 +104,53 @@ server <- function(input, output, session) {
           my_i <- i
           output[[paste0("groupTable", my_i)]] <- renderTable({
             groups[[my_i]][, "Team", drop = FALSE]
-          })
+          }, bordered = TRUE, spacing = "s", align = "c", rownames = FALSE)
         })
       }
       
-      do.call(fluidRow, groupTables)
+      div(style = "background-color: #f9f9f9; padding: 20px; border-radius: 10px; margin-top: 20px;", do.call(fluidRow, groupTables))
+    })
+    
+    output$knockoutDiagram <- renderGrViz({
+      diagram <- "
+      digraph knockout_rounds {
+        rankdir=TB;
+        
+        node [shape=box, style=filled, color=lightblue, fontname=\"Helvetica\"];
+
+        Q1 [label='Q1: Winner of Group A\nvs\nRunner up of Group C'];
+        Q2 [label='Q2: Winner of Group D\nvs\nRunner up of Group B'];
+        Q3 [label='Q3: Winner of Group B\nvs\nRunner up of Group D'];
+        Q4 [label='Q4: Winner of Group C\nvs\nRunner up of Group A'];
+        
+        S1 [label='SF1: Winner Q1\nvs\nWinner Q2', color=lightyellow, fontname=\"Helvetica\"];
+        S2 [label='SF2: Winner Q3\nvs\nWinner Q4', color=lightyellow, fontname=\"Helvetica\"];
+        F [label='Final', color=lightcoral, fontname=\"Helvetica-Bold\", fontsize=12];
+
+        edge [arrowhead=none, style=dashed, color=gray];
+        
+        Q1 -> S1;
+        Q2 -> S1;
+        Q3 -> S2;
+        Q4 -> S2;
+        
+        S1 -> F;
+        S2 -> F;
+      }
+      "
+      
+      grViz(diagram)
+    })
+  }
+  
+  observeEvent(input$generate, {
+    generateGroupsAndDiagram()
+    output$generateButton <- renderUI({
+      actionButton("regenerate", "Regenerate")
     })
   })
   
-  output$knockoutDiagram <- renderGrViz({
-    req(input$generate)
-    
-    diagram <- "
-    digraph knockout_rounds {
-      rankdir=TB;
-      
-      node [shape=box, style=filled, color=lightblue];
-      
-      Q1 [label='Q1: Winner of Group A\nvs\nRunner up of Group C'];
-      Q2 [label='Q2: Winner of Group D\nvs\nRunner up of Group B'];
-      Q3 [label='Q3: Winner of Group B\nvs\nRunner up of Group D'];
-      Q4 [label='Q4: Winner of Group C\nvs\nRunner up of Group A'];
-      
-      S1 [label='Semi-final 1'];
-      S2 [label='Semi-final 2'];
-      F [label='Final'];
-      
-      edge [arrowhead=none, style=dashed, color=gray];
-      
-      Q1 -> S1;
-      Q2 -> S1;
-      Q3 -> S2;
-      Q4 -> S2;
-      
-      S1 -> F;
-      S2 -> F;
-    }
-    "
-    
-    grViz(diagram)
+  observeEvent(input$regenerate, {
+    generateGroupsAndDiagram()
   })
 }

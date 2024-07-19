@@ -9,13 +9,15 @@ ui <- fluidPage(
       numericInput("numPools", "Number of Pools:", min = 1, max = 26, value = 4),
       numericInput("numGroups", "Number of Groups:", min = 1, max = 26, value = 4),
       actionButton("createPools", "Create Pools"),
-      actionButton("generate", "Generate"),
+      uiOutput("generateButton"),
       uiOutput("poolInputs")
     ),
     
     mainPanel(
       tableOutput("poolTable"),
-      uiOutput("groupTables"),
+      div(id = "group-tables-section", 
+          uiOutput("groupTables")
+      ),
       grVizOutput("knockoutDiagram")
     )
   )
